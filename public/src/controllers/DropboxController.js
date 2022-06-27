@@ -298,6 +298,7 @@ class DropboxController {
             <div class="name text-center>${file.name}</div>
         `;
 
+        this.initEventsLi(li);
         return li;
     }
     
@@ -307,6 +308,44 @@ class DropboxController {
             snapshot.forEach(item => {
                 this.listFilesEl.appendChild(this.getFileIconHtml(item.val(), item.key));
             });
+        });
+    }
+
+    initEventsLi(li) {
+        li.addEventListener('click', event => {
+            if (event.shiftKey) {
+                let firstLi = this.listFilesEl.querySelector('li.selected');
+            
+                if (firstLi) {
+                    let indexStart;
+                    let indexEnd;
+                    let childs = li.parentElement.childNodes;
+                    
+                    childs.forEach((child, index) => {
+                        if (firstLi === child) indexStart = index;
+                        if (li === child) indexEnd = index;
+                    });
+
+                    let indexArray = [indexStart, indexEnd].sort();
+
+                    childs.forEach((child, index) => {
+                        if (index >= indexArray[0] && index <= indexArray[1])
+                        {
+                            child.classList.add('selected');
+                        }
+                    });
+
+                    return true;
+                }
+            }
+
+            if (!event.ctrlKey) {
+                this.listFilesEl.querySelectorAll('li.selected').forEach(element => {
+                    element.classList.remove('selecteed');
+                })
+            }
+
+            li.classList.toggle('selected');
         });
     }
 }
