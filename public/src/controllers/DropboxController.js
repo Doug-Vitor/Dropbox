@@ -6,8 +6,31 @@ class DropboxController {
         this.progressBarEl = this.snackModalEl.querySelector('.mc-progress-bar-fg');
         this.nameFileEl = this.snackModalEl.querySelector('.filename');
         this.timeLeftEl = this.snackModalEl.querySelector('.timeleft');
+        this.listFilesEl = document.querySelector('#list-of-files-and-directories');
 
+        this.connectFirebase();
         this.initEvents();
+        this.readFiles();
+    }
+
+    connectFirebase() {
+        const firebaseConfig = {
+            apiKey: "AIzaSyBKH6Fo2fWT1LeGeGDvGV-TMBM1vppC5jk",
+            authDomain: "dropbox-clone-9b4aa.firebaseapp.com",
+            databaseURL: "https://dropbox-clone-9b4aa-default-rtdb.firebaseio.com",
+            projectId: "dropbox-clone-9b4aa",
+            storageBucket: "dropbox-clone-9b4aa.appspot.com",
+            messagingSenderId: "268447272205",
+            appId: "1:268447272205:web:9ddfdf22e63d8d4216f444",
+            measurementId: "G-RNDWY7NB51"
+        
+          };
+          
+          firebase.initializeApp(firebaseConfig);
+    }
+
+    getFirebaseRef() {
+        return firebase.database().ref('files');
     }
 
     initEvents() {
@@ -16,10 +39,21 @@ class DropboxController {
         });
 
         this.inputFilesEl.addEventListener('change', event => {
-            this.uploadFiles(event.target.files)
+            this.btnSendFileEl.disabled = true;
+
+            this.uploadFiles(event.target.files).then(responses => {
+                responses.forEach(resp => {
+                    this.getFirebaseRef().push().set(resp.files['input-file']);
+                });
+
+                this.completedUpload();
+            }).catch(error => {
+                this.completedUpload;
+                console.error(error);
+            });
+
             this.modalShow();
-            this.inputFilesEl.value = '';
-        })
+        });
     }
 
     uploadFiles(files) {
@@ -38,13 +72,11 @@ class DropboxController {
                     }
                 }
 
-                request.onerror = () => {
-                    this.modalShow(false);
+                    request.onerror = () => {
                     reject(error);
                 }
 
                 request.upload.onprogress = event => {
-                    console.log(event);
                     this.uploadProgress(event, file);
                 }
 
@@ -71,6 +103,12 @@ class DropboxController {
         this.progressBarEl.style.width = `${percent}%`
         this.nameFileEl.innerHTML = file.name;
         this.timeLeftEl.innerHTML = this.formatTime(timeLeft);
+    }
+
+    completedUpload() {
+        this.modalShow(false);
+        this.inputFilesEl.value = '';
+        this.btnSendFileEl.disabled = false;
     }
 
     formatTime(duration) {
@@ -251,11 +289,24 @@ class DropboxController {
         }
     }
 
-    getFileIconHtml(file) {
-        let tr = document.createElement('tr');
-        return `
+    getFileIconHtml(file, key) {
+        let li = document.createElement('li');
+        li.dataset.key = key;
+
+        li.innerHTML = `
             ${this.getFileIcon(file)}
             <div class="name text-center>${file.name}</div>
-        `
+        `;
+
+        return li;
+    }
+    
+    readFiles() {
+        this.listFilesEl.innerHTML = '';
+        this.getFirebaseRef().on('value', snapshot => {
+            snapshot.forEach(item => {
+                this.listFilesEl.appendChild(this.getFileIconHtml(item.val(), item.key));
+            });
+        });
     }
 }
