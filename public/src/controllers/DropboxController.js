@@ -1,5 +1,6 @@
 class DropboxController {
     constructor() {
+        this.onSelectionChange = new Event('selectionChange');
         this.btnSendFileEl = document.querySelector('#btn-send-file');
         this.inputFilesEl = document.querySelector('#files');
         this.snackModalEl = document.querySelector('#react-snackbar-root');
@@ -7,6 +8,10 @@ class DropboxController {
         this.nameFileEl = this.snackModalEl.querySelector('.filename');
         this.timeLeftEl = this.snackModalEl.querySelector('.timeleft');
         this.listFilesEl = document.querySelector('#list-of-files-and-directories');
+
+        this.btnNewFolder = document.querySelector('#btn-new-folder');
+        this.btnRename = document.querySelector('#btn-rename');
+        this.btnDelete = document.querySelector('#btn-delete');
 
         this.connectFirebase();
         this.initEvents();
@@ -33,7 +38,38 @@ class DropboxController {
         return firebase.database().ref('files');
     }
 
+    getSelectedItems() {
+        return this.listFilesEl.querySelectorAll('.selected');
+    }
+
     initEvents() {
+        this.btnRename.addEventListener('click', event => {
+            let li = this.getSelectedItems()[0];
+            let file = JSON.parse(li.dataset.file);
+
+            let newName = prompt('Renomeie o arquivo:', file.name);
+            if(newName) {
+                file.name = newName;
+                this.getFirebaseRef().child(li.dataset.key).set(file);
+            }
+        });
+
+        this.listFilesEl.addEventListener('selectionChange', event => {
+            switch(this.getSelectedItems().length) {
+                case 0:
+                    this.btnDelete.style.display = 'none';
+                    this.btnRename.style.display = 'none';
+                    break;
+                case 1: 
+                this.btnDelete.style.display = 'block';
+                this.btnRename.style.display = 'block';
+                    break;
+                default:
+                    this.btnRename.style.display = 'none';
+                    this.btnDelete.style.display = 'block';
+                    break;
+            }
+        })
         this.btnSendFileEl.addEventListener('click', () => {
             this.inputFilesEl.click();
         });
@@ -131,7 +167,7 @@ class DropboxController {
     }
 
     getFileIcon(file) {
-        switch (file.type) {
+        switch (file.mimetype) {
             case 'folder':
                 return `
                     <svg width="160" height="160" viewBox="0 0 160 160" class="mc-icon-template-content tile__preview tile__preview--icon">
@@ -292,6 +328,7 @@ class DropboxController {
     getFileIconHtml(file, key) {
         let li = document.createElement('li');
         li.dataset.key = key;
+        li.dataset.file = JSON.stringify(file);
 
         li.innerHTML = `
             ${this.getFileIcon(file)}
@@ -335,6 +372,7 @@ class DropboxController {
                         }
                     });
 
+                    this.listFilesEl.dispatchEvent(this.onSelectionChange);
                     return true;
                 }
             }
@@ -346,6 +384,7 @@ class DropboxController {
             }
 
             li.classList.toggle('selected');
+            this.listFilesEl.dispatchEvent(this.onSelectionChange);
         });
     }
 }
