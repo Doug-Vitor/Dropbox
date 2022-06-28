@@ -146,12 +146,17 @@ class DropboxController {
 
             this.uploadFiles(event.target.files).then(responses => {
                 responses.forEach(resp => {
-                    this.getFirebaseRef().push().set(resp.files['input-file']);
+                    this.getFirebaseRef().push().set({
+                        name: resp.name,
+                        type: resp.contentType,
+                        path: resp.customMetadata.url,
+                        size: resp.size
+                    })
                 });
 
                 this.completedUpload();
             }).catch(error => {
-                this.completedUpload;
+                this.completedUpload();
                 console.error(error);
             });
 
@@ -163,13 +168,29 @@ class DropboxController {
         let promises = [];
 
         [...files].forEach(file => {
-            let formData = new FormData();
-            formData.append('input-file', file);
-
-            promises.push(this.ajax('POST', '/upload', formData, (event) => {
-                this.uploadProgress(event, file);
-            }, () => {
-                this.startUploadTime = Date.now();
+            promises.push(new Promise((resolve, reject) => {
+                let fileRef = firebase.storage().ref(this.currentFolder.join('/')).child(file.name);
+                let task = fileRef.put(file);
+    
+                task.on('state_changed', snapshot => {
+                    this.uploadProgress({
+                        loaded: snapshot.bytesTransferred,
+                        total: snapshot.totalBytes
+                    }, file)
+                }, error=> {
+                    reject(error);
+                }, () => {
+                    task.snapshot.ref.getDownloadURL().then(url => {
+                        task.snapshot.ref.updateMetadata({
+                            customMetadata: {url}
+                        }).then(metadata => {
+                            resolve(metadata)
+                        }).catch(error => {
+                            console.error(error);
+                            reject(error);
+                        })
+                    })
+                })
             }));
         });
 
